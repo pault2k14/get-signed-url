@@ -1,71 +1,61 @@
-"use strict";
+'use strict'
 
 var AWS = require('aws-sdk');
-var exec = require('child_process').exec;
-var fs = require('fs');
-
-process.env['PATH'] = process.env['PATH'] + ':' +
-    process.env['LAMBDA_TASK_ROOT'];
+var async = require('async');
 
 var s3 = new AWS.S3();
 
-function saveMetadataToS3(body, bucket, key, callback) {
-    console.log("Saving metadata to s3");
+function createBucketParams(next) {
 
-    s3.putObject({
-        Bucket: bucket,
-        Key: key,
-        Body: body
-    }, function(error, data){
-        if (error) {
-            callback(error);
-        }
-    });
+    var params = {
+        Bucket: process.env.BUCKET,
+        EncodingType: 'url'
+    };
+
+    next(null, params);
 }
 
-function extractMetadata(sourceBucket, sourceKey, localFilename, callback) {
-    console.log('Extracting metadata')
+function getVideosFromBucket(params, next) {
 
-    var cmd = 'bin/ffprobe -v quiet -print format json -show_format "/temp/'
-        + localFilename + '"';
-
-    exec(cmd, function(error, stdout, stderr) {
-        if(error === null) {
-            var metadataKey = sourceKey.split('.')[0] + '.json';
-            saveMetadataToS3(stdout, sourceBucket, metadataKey, callback);
+    s3.listObjects(params, function(err, data) {
+        if(err) {
+            next(err);
         } else {
-            console.log(stderr);
-            callback(error);
+            next(null, data);
         }
     });
 }
 
-function saveFileToFilesystem(sourceBucket, sourceKey, callback) {
-    console.log('Saving to filesystem');
+function createList(data, next) {
 
-    var localFilename = sourceKey.split('/').pop();
-    var file = fs.createWriteStream('/tmp/' + localFilename);
+    var urls = [];
 
-    var stream = s3.getObject({
-        Bucket: sourceBucket,
-        Key: sourceKey
-    }).createReadStream().pipe(file);
+    for(var i = 0; i < data.Contents.length; i++) {
+        var file = data.Contents[i];
 
-    stream.on('error', function(error){
-        callback(error);
-    });
+        if(file.Key && file.Key.substr(-3, 3) === 'mp4') {
+            urls.push(file);
+        }
+    }
 
-    stream.on('close', function() {
-        extractMetadata(sourceBucket, sourceKey, localFilename, callback);
-    });
+    var result = {
+        baseUrl: process.env.BASE_URL,
+        bucket: process.env.BUCKET,
+        urls: urls
+    }
+
+    next(null, result);
 }
 
 exports.handler = function(event, context, callback) {
-    var message = JSON.parse(event.Records[0].Sns.Message);
 
-    var sourceBucket = message.Records[0].s3.bucket.name;
-    var sourceKey =
-        decodeURIComponent(message.Records[0].s3.object.key.replace(/\+/g, " "));
+    async.waterfall([createBucketParams, getVideosFromBucket, createList],
+        function (err, result) {
 
-    saveFileToFilesystem(sourceBucket, sourceKey, callback);
-}
+            if(err) {
+                callback(err);
+            } else {
+                callback(null, result);
+            }
+        });
+};
