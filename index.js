@@ -74,8 +74,11 @@ function createList(encoding, data, next) {
             }
         }
 
+        var params = { Bucket: process.env.BUCKET, Key: file.Key};
+        var url = s3.getSignedUrl('getObject', params);
+
         files.push({
-            'filename': file.Key,
+            'filename': url,
             'eTag': file.ETag.replace(/"/g, ""),
             'size': file.Size
         })
