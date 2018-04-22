@@ -1,12 +1,12 @@
 {
-  "name": "get-video-list",
+  "name": "get-signed-url",
   "version": "1.0.0",
-  "description": "This lambda function will list videos available in an s3 bucket",
+  "description": "This lambda function will return a signed url for a file in a s3 bucket",
   "main": "index.js",
   "scripts": {
-    "create": "aws lambda create-function --function-name get-video-list --handler index.handler --memory-size 128 --runtime nodejs8.10 --role arn:aws:iam::344407293846:role/lambda-s3-execution-role --timeout 3 --publish --zip-file fileb://Lambda-Deployment.zip",
+    "create": "aws lambda create-function --function-name get-signed-url --handler index.handler --memory-size 128 --runtime nodejs8.10 --role arn:aws:iam::344407293846:role/lambda-s3-execution-role --timeout 10 --publish --zip-file fileb://Lambda-Deployment.zip",
     "test": "run-local-lambda --file index.js --event tests/event.json",
-    "deploy": "aws lambda update-function-code --function-name get-video-list --zip-file fileb://Lambda-Deployment.zip",
+    "deploy": "aws lambda update-function-code --function-name get-signed-url --zip-file fileb://Lambda-Deployment.zip",
     "precreate": "7za a -tzip Lambda-Deployment.zip -x!Lambda-Deployment.zip",
     "predeploy": "7za a -tzip Lambda-Deployment.zip -x!Lambda-Deployment.zip"
   },
@@ -17,10 +17,5 @@
   "author": "Paul Thompson",
   "license": "BSD-2-Clause",
   "devDependencies": {
-    "chai": "^4.1.2",
-    "rewire": "^4.0.0",
-    "run-local-lambda": "1.1.0",
-    "sinon": "^4.5.0",
-    "sinon-chai": "^3.0.0"
   }
 }
